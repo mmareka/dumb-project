@@ -25,8 +25,10 @@ corner, adds and changes tasks from plain requests and answers questions about t
   "slide launch to next Monday", "what could make us miss the deadline?" It previews every change first,
   and every change can be undone.
 - Open or drop in: `.sched`, Primavera P6 XER and P6 XML, Microsoft Project XML, Excel (.xlsx), CSV,
-  Jira CSV export. Files are read in the browser and never uploaded. For a Microsoft Project .mpp,
-  save it from Project as XML first.
+  Jira CSV export, and schedules inside documents: PDF reports, PowerPoint (tables or a drawn
+  timeline) and Word tables, shown for review before they become a schedule. Files are read in the
+  browser and never uploaded; PDF.js (Apache 2.0, in `app/vendor/pdfjs`) ships with the app. For a
+  Microsoft Project .mpp, save it from Project as XML first.
 - Save and export: `.sched`, Microsoft Project XML, Primavera P6 XER, CSV, Jira CSV, Inversion model and CSV
 
 ## License
