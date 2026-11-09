@@ -200,7 +200,7 @@ test('Project XML without durations (Inversion timeline export)', () => {
   eq(at(q, r, 2), ['2027-01-20T08:00', '2027-01-20T17:00']);
 });
 
-test('Schedule Iguana: add, move, link and answer', () => {
+test('Schedule Chicken: add, move, link and answer', () => {
   const p = mini([['Design', 2], ['Build', 3], ['Launch', 1]]);
   p.tasks[1].preds = [{ id: p.tasks[0].id, type: 'FS', lag: 0 }];
   p.tasks[2].preds = [{ id: p.tasks[1].id, type: 'FS', lag: 0 }];
@@ -221,7 +221,7 @@ test('Schedule Iguana: add, move, link and answer', () => {
   eq(interpret('make build 5 days', ctx()).lines[0], 'Make "Build" 5 days');
 });
 
-test('Schedule Iguana understands everyday wording', () => {
+test('Schedule Chicken understands everyday wording', () => {
   const p = mini([['Design', 2], ['Build', 3], ['Launch', 1]]);
   p.tasks[1].preds = [{ id: p.tasks[0].id, type: 'FS', lag: 0 }];
   p.tasks[2].preds = [{ id: p.tasks[1].id, type: 'FS', lag: 0 }];
@@ -258,6 +258,24 @@ test('Inversion model JSON: phases as clusters, goals, tasks and requires links'
   eq(m.nodes.filter(n => n.containerId).every(n => m.nodes.find(x => x.id === n.containerId)?.cluster), true);
   const build = m.nodes.find(n => n.title === 'Client review and contract');
   eq([type(build.typeId), build.properties['task.start'], build.properties['task.end']], ['Task', '2027-01-19', '2027-01-28']);
+});
+
+test('Schedule Chicken picks the closest command for loose wording', () => {
+  const p = mini([['Design', 2], ['Build', 3], ['Testing', 2], ['Launch', 1]]);
+  for (let i = 1; i < 4; i++) p.tasks[i].preds = [{ id: p.tasks[i - 1].id, type: 'FS', lag: 0 }];
+  const ctx = { project: p, computed: schedule(p) };
+  const read = q => { const r = interpret(q, ctx); return r.as || (r.lines && r.lines[0]) || r.text; };
+  eq(read('Launch should probably go to March 3 2027'), 'move Launch to March 3 2027');
+  eq(read('Build feels like it needs 2 more weeks'), 'make Build 2 weeks');
+  eq(read('how long until launch is out the door'), 'when does Launch finish?');
+  eq(read('stick a 3 day review after testing'), 'add Review 3 days after Testing');
+  eq(read('design is wrapped, finally'), 'Design is done');
+  eq(interpret('blue sky thinking', ctx).unknown, true);
+  p.tasks.push(createTask(p, { name: 'Client review and contract' }));
+  const ctx2 = { project: p, computed: schedule(p) };
+  const r2 = interpret('stick a 2 day review after build', ctx2);
+  eq([r2.as, r2.lines[0]], ['add Review 2 days after Build', 'Add "Review", 2 days, after "Build"']);
+  eq(interpret('add Sign-off 1 day after Client review and contract', ctx2).lines[0], 'Add "Sign-off", 1 day, after "Client review and contract"');
 });
 
 const pass = results.filter(r => r[1]).length;

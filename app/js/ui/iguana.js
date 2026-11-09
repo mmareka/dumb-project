@@ -121,6 +121,12 @@ export function readDay(text, refYear, today = Math.floor(todayMinutes() / 1440)
 export function interpret(text, ctx) {
   const n = normalize(text);
   const res = interpretCore(n.text, ctx);
+  // No rule matched, but one suggestion clearly fits the wording: read it that way (the preview still
+  // asks before anything changes).
+  if (res.unknown && res.best) {
+    const again = interpretCore(res.best, ctx);
+    if (!again.unknown) return { ...again, as: res.best };
+  }
   if (n.rewrote && n.text.toLowerCase() !== text.trim().toLowerCase() && !res.unknown) res.as = n.text;
   return res;
 }
@@ -226,7 +232,56 @@ function interpretCore(text, { project, computed }) {
       assignments.forEach(a => { if (!x.assignments.some(b => b.resourceId === a.resourceId)) x.assignments.push(a); });
     });
   }
-  return { kind: 'answer', unknown: true, text: `I didn't catch that yet. ${HELP.split('. ')[0]}.` };
+  return suggest(s, project, computed);
+}
+
+// Didn't match anything: build the likely commands from the task names, durations and dates in the
+// request, score each by the words that point to it, and offer the best ones as buttons. When one
+// clearly wins it becomes `best`, and Iguana reads the request that way.
+const CUES = {
+  move: /\b(?:go|goes|going|move|slide|push|shift|slip|bump|delay|postpone|reschedul\w*|later|earlier|sooner)\b/i,
+  duration: /\b(?:take|takes|taking|need|needs|longer|shorter|more|extra|another|lasts?)\b/i,
+  add: /\b(?:add|stick|insert|tack|squeeze|slot|include|new|step|review|inspection|meeting)\b/i,
+  link: /\b(?:before|depends?|first|then|until)\b/i,
+  finish: /\b(?:how long|until|when|finish(?:es|ed)? by|out the door|ready by|complete by|end date)\b|\bwhen\b/i,
+  why: /\b(?:why|holding|blocking|stuck|late|behind)\b/i,
+  done: /\b(?:wrapped|finished|done|complete|completed|over with|signed off)\b/i,
+};
+
+function suggest(s, project, computed) {
+  const low = s.toLowerCase(), words = low.match(/[a-z0-9]+/g) || [];
+  // The task named after "after/before" comes first, then whole names in the text, then word matches.
+  const anchor = s.match(/\b(?:after|before|following)\s+(?:the\s+)?(.+?)\??$/i)?.[1];
+  const anchored = anchor ? findTask(project, anchor) : null;
+  const overlap = t => t.name.toLowerCase().split(/\s+/).filter(w => w.length > 3 && words.includes(w)).length;
+  const tasks = [...new Set([anchored, ...project.tasks.filter(t => t.name && low.includes(t.name.toLowerCase())),
+    ...project.tasks.filter(t => overlap(t)).sort((a, b) => overlap(b) - overlap(a))].filter(Boolean))].slice(0, 2);
+  const durRe = new RegExp(`${NUM}[ -]?(?:more |extra |additional )?${UNIT}\\b`, 'i');
+  const dm = s.match(durRe);
+  const dur = dm ? `${dm[1]} ${/^w/i.test(dm[2]) ? 'weeks' : /^h/i.test(dm[2]) ? 'hours' : /^mo/i.test(dm[2]) ? 'months' : 'days'}` : null;
+  const tail = s.match(/\b(?:to|on|until|till|by)\s+(.+?)\??$/i)?.[1];
+  const date = tail && readDay(tail, yearOf(computed.start)) != null ? clean(tail) : null;
+  const cue = k => (CUES[k].test(s) ? 2 : 0);
+  const cand = [];
+  if (tasks.length) {
+    const n = tasks[0].name;
+    const m = s.replace(durRe, ' ').replace(/\s+/g, ' ').match(/^(?:\w+ )?(?:(?:a|an|the|another|some) )?(.+?) (?:step |task )?(?:after|before|following)\b/i);
+    const named = m && clean(m[1]);
+    const addName = named && named.split(' ').length <= 5 && !project.tasks.some(t => t.name.toLowerCase() === named.toLowerCase()) ? cap(named) : 'New task';
+    if (date) cand.push([`move ${n} to ${date}`, cue('move') + 1]);
+    if (dur) cand.push([`make ${n} ${dur}`, cue('duration') + 1]);
+    if (dur || CUES.add.test(s)) cand.push([`add ${addName} ${dur || '1 day'} after ${n}`, cue('add') + (dur ? 1 : 0) + (addName !== 'New task' ? 1 : 0)]);
+    if (tasks[1]) cand.push([`link ${n} to ${tasks[1].name}`, cue('link') + 1]);
+    cand.push([`when does ${n} finish?`, cue('finish')], [`why did ${n} move?`, cue('why')], [`${n} is done`, cue('done') && !CUES.finish.test(s) ? 3 : 0]);
+  } else {
+    const name = cap(clean(s.replace(durRe, '').split(/\b(?:after|before|for|to|by)\b/i)[0]).slice(0, 40));
+    if (name && name.split(' ').length <= 6) cand.push([`add ${name} ${dur || '1 day'}`, cue('add') + (dur ? 1 : 0)]);
+    cand.push(["what's on the critical path?", 0], ['when does the project finish?', cue('finish')], ['what can you do?', 0]);
+  }
+  cand.sort((a, b) => b[1] - a[1]);
+  const best = cand[0] && cand[0][1] >= 2 && (!cand[1] || cand[0][1] > cand[1][1]) ? cand[0][0] : null;
+  return { kind: 'answer', unknown: true, best, suggestions: [...new Set(cand.map(c => c[0]))].slice(0, 4),
+    text: "I'm not sure what you meant. Is it one of these? Tap one, or type it your way." };
 }
 
 function planAdd(rest, project) {
@@ -234,7 +289,7 @@ function planAdd(rest, project) {
   const milestone = /\bmilestone\b/i.test(r);
   const quoted = r.match(/["“]([^"”]+)["”]/);
   r = r.replace(new RegExp(`\\s(?:for |lasting |that takes |taking )?${NUM}[ -]?${UNIT}\\b`, 'i'), (x, n, u) => { d = durOf(n, u, project); return ' '; });
-  r = r.replace(/\s(?:right\s+)?after\s+(.+?)(?=\s+(?:and|give|assign(?:ed)?|for)\b|\s*$)/i, (x, y) => { after = y; return ' '; });
+  r = r.replace(/\s(?:right\s+)?after\s+(.+?)(?=\s+(?:and\s+(?:give|assign)|give|assign(?:ed)?|for)\b|\s*$)/i, (x, y) => { after = y; return ' '; });
   r = r.replace(/\s(?:and\s+)?(?:give it to|assign(?:ed)?(?: it)? to|for)\s+(.+?)\s*$/i, (x, y) => { who = clean(y); return ' '; });
   let name = quoted ? quoted[1] : r.replace(/\b(?:a|an|the|new|task|milestone|called|named|and|some|another|extra)\b/gi, ' ').replace(/^\s*(?:of|for)\s+/i, ' ');
   name = cap(clean(name.replace(/\s+/g, ' '))) || (milestone ? 'Milestone' : 'New task');
@@ -306,7 +361,11 @@ export class Iguana {
     const res = interpret(text, { project, computed });
     if (res.as) this.say(`I read that as <b>“${esc(res.as)}”</b>.`);
     if (res.kind === 'undo') { this.say(this.app.store.undo() ? 'Undone.' : 'There is nothing to undo.'); return; }
-    if (res.kind === 'answer') { this.say(esc(res.text)); return; }
+    if (res.kind === 'answer') {
+      const el = this.say(esc(res.text));
+      if (res.suggestions?.length) el.insertAdjacentHTML('beforeend', `<div class="ig-sugg">${res.suggestions.map(x => `<button data-say="${esc(x)}">${esc(x)}</button>`).join('')}</div>`);
+      return;
+    }
     // Try the plan on a copy first, so the preview can say what will move.
     const copy = structuredClone(project);
     let newId;

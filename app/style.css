@@ -1,4 +1,4 @@
-﻿/* Dumb Project. Azure look (Geist, Cherenkov azure), light and dark, with springy controls. */
+/* Dumb Project. Azure look (Geist, Cherenkov azure), light and dark, with springy controls. */
 :root {
   --page: #EEF4FA; --pane: #FFFFFF; --pane-2: #F6F9FC; --line: #CBD8E6; --line-soft: #E3EBF3;
   --ink: #0A1A2E; --muted: #475A70; --faint: #8A9AAD;
@@ -248,7 +248,7 @@ dialog .actions { display: flex; justify-content: flex-end; gap: 8px; padding: 0
 .empty p { margin: 0 0 16px; color: var(--muted); }
 .drop-hint { position: fixed; inset: 10px; z-index: 90; border: 3px dashed var(--azure); border-radius: 22px; background: color-mix(in srgb, var(--azure) 8%, transparent);
   display: grid; place-items: center; font-size: 20px; font-weight: 600; color: var(--azure); pointer-events: none; animation: pop .2s var(--spring); }
-/* ---------- Schedule Iguana */
+/* ---------- Schedule Chicken */
 .iguana-btn { position: fixed; right: 18px; bottom: 46px; z-index: 40; width: 56px; height: 56px; padding: 0; border: 0; border-radius: 18px;
   background: none; cursor: pointer; box-shadow: var(--shadow-pop); transition: transform .25s var(--spring), opacity .2s; }
 .iguana-btn img { width: 100%; height: 100%; display: block; border-radius: 18px; }
@@ -278,6 +278,11 @@ dialog .actions { display: flex; justify-content: flex-end; gap: 8px; padding: 0
   color: var(--muted); cursor: pointer; transition: transform .18s var(--spring), border-color .15s, color .15s; }
 .ig-chips button:hover { border-color: #12B886; color: var(--ink); }
 .ig-chips button:active { transform: scale(.94); }
+.ig-sugg { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.ig-sugg button { border: 1px solid #12B886; background: var(--pane); color: var(--ink); border-radius: 999px; padding: 5px 11px;
+  font-size: 12.5px; cursor: pointer; transition: transform .18s var(--spring), background .15s; }
+.ig-sugg button:hover { background: rgba(18,184,134,.12); }
+.ig-sugg button:active { transform: scale(.94); }
 .ig-input { display: flex; gap: 6px; padding: 10px 12px 12px; border-top: 1px solid var(--line-soft); }
 .ig-input input { flex: 1; border: 1px solid var(--line); border-radius: 12px; padding: 8px 12px; background: var(--pane); }
 .ig-input input:focus { outline: none; border-color: #12B886; box-shadow: 0 0 0 3px rgba(18,184,134,.25); }
