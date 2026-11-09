@@ -24,7 +24,9 @@ corner, adds and changes tasks from plain requests and answers questions about t
 - Schedule Chicken: "can we fit in three days of testing once build is done, Ana will handle it",
   "slide launch to next Monday", "what could make us miss the deadline?" It previews every change first,
   and every change can be undone.
-- Open: `.sched`, Microsoft Project XML, CSV, Jira CSV export
+- Open or drop in: `.sched`, Primavera P6 XER and P6 XML, Microsoft Project XML, Excel (.xlsx), CSV,
+  Jira CSV export. Files are read in the browser and never uploaded. For a Microsoft Project .mpp,
+  save it from Project as XML first.
 - Save and export: `.sched`, Microsoft Project XML, Primavera P6 XER, CSV, Jira CSV, Inversion model and CSV
 
 ## License
